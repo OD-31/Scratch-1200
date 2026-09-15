@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Skratch">
+  <meta name="theme-color" content="#0d0e10">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="style.css">
+  <title>Skratch 1200</title>
+</head>
+<body>
+<div id="app">
+
+  <!-- ========== EN-TÊTE ========== -->
+  <header class="topbar">
+    <div class="brand">SKRATCH<span>1200</span></div>
+    <button id="btnLoad" class="btn btn-accent">📂 Charger</button>
+    <button id="btnLibrary" class="btn">Bibliothèque</button>
+    <div id="sampleName" class="sample-name">Aucun sample</div>
+
+    <div class="bpm-box">
+      <div class="lbl">BPM</div>
+      <button id="bpmMinus" class="btn btn-sq">−</button>
+      <div id="bpmValue" class="bpm-value" title="Toucher pour saisir">90.0</div>
+      <button id="bpmPlus" class="btn btn-sq">+</button>
+      <button id="btnTap" class="btn">TAP</button>
+    </div>
+    <button id="btnSettings" class="btn btn-sq" aria-label="Réglages">⚙︎</button>
+    <input id="fileInput" type="file" accept="audio/*,.wav,.mp3,.m4a,.aif,.aiff,.caf,.flac,.ogg" hidden>
+  </header>
+
+  <!-- ========== ONDE + DÉCOUPE ========== -->
+  <section class="wave-panel">
+    <canvas id="waveZoom"></canvas>
+    <canvas id="waveOverview"></canvas>
+    <div class="wave-tools">
+      <button id="btnChop" class="btn">✂︎ CHOP</button>
+      <button id="btnAddCut" class="btn">+ Point ici</button>
+      <button id="btnClearCuts" class="btn">Effacer</button>
+      <span class="sep"></span>
+      <div class="src-bpm">
+        <span class="lbl">Sample</span>
+        <span id="srcBpm" class="src-bpm-value">— bpm</span>
+        <button id="btnDetect" class="btn btn-small">Détecter</button>
+      </div>
+      <button id="btnStretch" class="btn">⇔ TIME STRETCH</button>
+      <span class="sep"></span>
+      <div id="timeDisplay" class="time">0:00.00</div>
+    </div>
+  </section>
+
+  <!-- ========== PLATINE ========== -->
+  <main class="deck">
+    <aside class="left-col">
+      <div class="col-title">CUES</div>
+      <div id="pads" class="pads">
+        <button class="pad" data-pad="0"><span>1</span></button>
+        <button class="pad" data-pad="1"><span>2</span></button>
+        <button class="pad" data-pad="2"><span>3</span></button>
+        <button class="pad" data-pad="3"><span>4</span></button>
+        <button class="pad" data-pad="4"><span>5</span></button>
+        <button class="pad" data-pad="5"><span>6</span></button>
+      </div>
+      <button id="btnLoopPad" class="btn btn-wide">↻ LOOP PAD</button>
+      <button id="btnMute" class="mute">
+        <span class="mute-led"></span>
+        <span class="mute-label">SON</span>
+        <span class="mute-sub">FADER</span>
+      </button>
+    </aside>
+
+    <div class="plinth">
+      <canvas id="platter"></canvas>
+      <div class="transport">
+        <button id="btnReverse" class="tbtn">◀<small>REVERSE</small></button>
+        <button id="btnStop" class="tbtn tbtn-stop">■<small>STOP</small></button>
+        <button id="btnPlay" class="tbtn">▶<small>PLAY</small></button>
+      </div>
+    </div>
+
+    <aside class="right-col">
+      <div class="col-title">PITCH</div>
+      <div class="rpm">
+        <button id="btn33" class="btn rpm-btn on">33</button>
+        <button id="btn45" class="btn rpm-btn">45</button>
+      </div>
+      <div id="pitchTrack" class="pitch-track">
+        <div class="pitch-scale"></div>
+        <div id="pitchKnob" class="pitch-knob"></div>
+      </div>
+      <div id="pitchValue" class="pitch-value">0.0 %</div>
+      <button id="btnPitchReset" class="btn btn-small">RESET</button>
+      <button id="btnSync" class="btn btn-small" title="Cale la vitesse sur le BPM (change la tonalité)">SYNC</button>
+    </aside>
+  </main>
+</div>
+
+<!-- ========== PANNEAUX ========== -->
+<div id="libraryPanel" class="panel" hidden>
+  <div class="panel-box">
+    <div class="panel-head"><h2>Bibliothèque</h2><button class="btn btn-sq" data-close>✕</button></div>
+    <p class="hint">Les samples chargés sont gardés ici avec leurs découpes et leur BPM.</p>
+    <ul id="libraryList" class="lib-list"></ul>
+  </div>
+</div>
+
+<div id="settingsPanel" class="panel" hidden>
+  <div class="panel-box">
+    <div class="panel-head"><h2>Réglages</h2><button class="btn btn-sq" data-close>✕</button></div>
+    <label class="row">Durée de l'arrêt (STOP) <output id="brakeOut"></output>
+      <input id="brakeTime" type="range" min="0.2" max="4" step="0.1"></label>
+    <label class="row">Plage du pitch
+      <select id="pitchRange"><option value="8">±8 %</option><option value="16">±16 %</option><option value="50">±50 %</option></select></label>
+    <label class="row">Déclenchement des pads
+      <select id="padMode">
+        <option value="instant">Immédiat</option>
+        <option value="segment">À la fin du segment en cours (pad en attente)</option>
+      </select></label>
+    <label class="row">Sens du scratch
+      <select id="scratchDir"><option value="1">Normal</option><option value="-1">Inversé</option></select></label>
+    <p class="hint">Astuce : si tu n'entends rien, vérifie que le bouton silencieux de l'iPad est désactivé.</p>
+  </div>
+</div>
+
+<div id="startOverlay" class="overlay">
+  <div class="overlay-box">
+    <div class="brand big">SKRATCH<span>1200</span></div>
+    <button id="btnStart" class="btn btn-accent btn-big">Toucher pour démarrer</button>
+  </div>
+</div>
+<div id="rotateOverlay" class="overlay rotate"><div class="overlay-box">↻ Tourne l'iPad en mode portrait</div></div>
+<div id="busy" class="overlay" hidden><div class="overlay-box"><div class="spinner"></div><div id="busyText">Traitement…</div></div></div>
+<div id="toast" class="toast" hidden></div>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
