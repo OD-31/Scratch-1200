@@ -1,5 +1,5 @@
 // Service worker : met l'app en cache pour qu'elle marche hors ligne.
-const CACHE = 'skratch-v1';
+const CACHE = 'skratch-v2';
 const FILES = [
   '/', '/index.html', '/style.css', '/app.js', '/dsp.js', '/render.js','/storage.js', '/turntable-worklet.js',
   '/manifest.webmanifest', '/icons/icon-180.png', '/icons/icon-192.png', '/icons/icon-512.png',

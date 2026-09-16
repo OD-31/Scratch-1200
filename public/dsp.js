@@ -67,12 +67,57 @@ export function detectBPM(channels, sampleRate) {
   return best ? Math.round(best * 10) / 10 : 90;
 }
 
+// Versions pré-filtrées du son (mipmaps) pour la lecture rapide sans aliasing.
+// levels[0] = original, levels[k] = filtré passe-bas et décimé par 2^k.
+const HALFBAND = (() => {
+  const taps = 63, c = (taps - 1) / 2, h = new Float32Array(taps);
+  let sum = 0;
+  for (let n = 0; n < taps; n++) {
+    const m = n - c;
+    const sinc = m === 0 ? 0.5 : Math.sin(Math.PI * m / 2) / (Math.PI * m);
+    const win = 0.42 - 0.5 * Math.cos(2 * Math.PI * n / (taps - 1)) + 0.08 * Math.cos(4 * Math.PI * n / (taps - 1));
+    h[n] = sinc * win;
+    sum += h[n];
+  }
+  for (let n = 0; n < taps; n++) h[n] /= sum;
+  return { h, c };
+})();
+
+function halfbandDecimate(x) {
+  const { h, c } = HALFBAND;
+  const L = x.length, outLen = Math.ceil(L / 2);
+  const y = new Float32Array(outLen);
+  const center = h[c];
+  for (let j = 0; j < outLen; j++) {
+    const i = j * 2;
+    let acc = center * x[i];
+    for (let m = 1; m <= c; m += 2) { // les coefficients pairs sont nuls
+      let a = i - m, b = i + m;
+      if (a < 0) a += L;
+      if (b >= L) b -= L;
+      acc += h[c + m] * (x[a] + x[b]);
+    }
+    y[j] = acc;
+  }
+  return y;
+}
+
+export function buildLevels(channels, count = 5) {
+  const levels = [channels];
+  for (let k = 1; k < count; k++) {
+    const prev = levels[k - 1];
+    if (prev[0].length < 256) break;
+    levels.push(prev.map(halfbandDecimate));
+  }
+  return levels;
+}
+
 // Time-stretch WSOLA : change la durée sans changer la tonalité.
 // ratio = durée de sortie / durée d'entrée  (ex. sample 90 bpm -> 100 bpm : ratio = 0.9)
 export function timeStretch(channels, sampleRate, ratio) {
   if (Math.abs(ratio - 1) < 1e-4) return channels.map((c) => c.slice());
   const N = 1 << Math.round(Math.log2(sampleRate * 0.046)); // ~46 ms (2048 @ 44.1k)
-  const Hs = N / 2;
+  const Hs = N / 4; // recouvrement 75 % : moins d'artefacts
   const Ha = Hs / ratio;
   const tol = N / 4;
   const inLen = channels[0].length;
@@ -110,7 +155,7 @@ export function timeStretch(channels, sampleRate, ratio) {
       for (let i = 0; i < N; i++) {
         const j = pos + i;
         if (j >= inLen || o + i >= dst.length) break;
-        dst[o + i] += src[j] * win[i];
+        dst[o + i] += src[j] * win[i] * 0.5; // somme des fenêtres de Hann à 75 % = 2
       }
     }
     prevPos = pos;

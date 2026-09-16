@@ -34,41 +34,14 @@ export function drawPlatter(ctx, w, h, S) {
   S.geom = { cx, cy, R };
   const rot = S.angle; // rotation du disque (radians, sens horaire)
 
-  // ombre + plateau métal avec points stroboscopiques
-  ctx.save();
-  ctx.shadowColor = 'rgba(0,0,0,.55)'; ctx.shadowBlur = 24; ctx.shadowOffsetY = 8;
-  ctx.beginPath(); ctx.arc(cx, cy, R, 0, TAU); ctx.fillStyle = '#6d7076'; ctx.fill();
-  ctx.restore();
-  const metal = ctx.createRadialGradient(cx - R * .3, cy - R * .3, R * .1, cx, cy, R);
-  metal.addColorStop(0, '#d4d7db'); metal.addColorStop(.7, '#8b8f95'); metal.addColorStop(1, '#5d6066');
-  ctx.beginPath(); ctx.arc(cx, cy, R, 0, TAU); ctx.fillStyle = metal; ctx.fill();
-
-  ctx.save(); ctx.translate(cx, cy); ctx.rotate(rot);
-  for (const [ring, count, size] of [[R - 5, 180, 1.6], [R - 12, 176, 1.4], [R - 19, 172, 1.2]]) {
-    ctx.fillStyle = '#2b2d31';
-    for (let i = 0; i < count; i++) {
-      const a = (i / count) * TAU;
-      ctx.fillRect(Math.cos(a) * ring - size / 2, Math.sin(a) * ring - size / 2, size, size);
-    }
-  }
-  ctx.restore();
-
-  // vinyle
+  // plateau métal (ombre + points strobo) et vinyle : dessinés une fois puis mis en cache
   const Rv = R - 26;
-  ctx.beginPath(); ctx.arc(cx, cy, Rv, 0, TAU); ctx.fillStyle = '#0b0b0d'; ctx.fill();
+  const layers = platterLayers(R, Rv);
   ctx.save(); ctx.translate(cx, cy);
-  ctx.lineWidth = 1;
-  for (let r = Rv - 6; r > Rv * 0.36; r -= 3) {
-    ctx.strokeStyle = (r | 0) % 2 ? 'rgba(255,255,255,.035)' : 'rgba(0,0,0,.5)';
-    ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.stroke();
-  }
-  // reflets fixes (lumière) : deux secteurs
-  for (const a0 of [-2.4, 0.74]) {
-    const g = ctx.createRadialGradient(0, 0, Rv * .36, 0, 0, Rv);
-    g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(.6, 'rgba(255,255,255,.07)'); g.addColorStop(1, 'rgba(255,255,255,.02)');
-    ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, Rv, a0, a0 + .5); ctx.closePath();
-    ctx.fillStyle = g; ctx.fill();
-  }
+  ctx.save(); ctx.rotate(rot);
+  ctx.drawImage(layers.plate, -layers.half, -layers.half, layers.half * 2, layers.half * 2);
+  ctx.restore();
+  ctx.drawImage(layers.vinyl, -layers.half, -layers.half, layers.half * 2, layers.half * 2);
   // repère tournant sur le vinyle (pour voir la rotation)
   ctx.rotate(rot);
   ctx.strokeStyle = S.touching ? '#fff' : 'rgba(0,224,184,.9)'; ctx.lineWidth = 4; ctx.lineCap = 'round';
@@ -107,14 +80,64 @@ export function drawPlatter(ctx, w, h, S) {
   }
 }
 
+// Couches statiques de la platine, recalculées seulement si la taille change
+let layerCache = null;
+function platterLayers(R, Rv) {
+  const dpr = Math.min(2, (typeof devicePixelRatio !== 'undefined' && devicePixelRatio) || 1);
+  if (layerCache && layerCache.R === R && layerCache.dpr === dpr) return layerCache;
+  const half = R + 40;
+  const size = Math.ceil(half * 2 * dpr);
+  const make = () => {
+    const c = document.createElement('canvas');
+    c.width = c.height = size;
+    const x = c.getContext('2d');
+    x.setTransform(dpr, 0, 0, dpr, half * dpr, half * dpr);
+    return [c, x];
+  };
+
+  const [plate, p] = make();
+  p.save();
+  p.shadowColor = 'rgba(0,0,0,.55)'; p.shadowBlur = 24; p.shadowOffsetY = 8;
+  p.beginPath(); p.arc(0, 0, R, 0, TAU); p.fillStyle = '#6d7076'; p.fill();
+  p.restore();
+  const metal = p.createRadialGradient(-R * .3, -R * .3, R * .1, 0, 0, R);
+  metal.addColorStop(0, '#d4d7db'); metal.addColorStop(.7, '#8b8f95'); metal.addColorStop(1, '#5d6066');
+  p.beginPath(); p.arc(0, 0, R, 0, TAU); p.fillStyle = metal; p.fill();
+  p.fillStyle = '#2b2d31';
+  for (const [ring, count, sz] of [[R - 5, 180, 1.6], [R - 12, 176, 1.4], [R - 19, 172, 1.2]]) {
+    for (let i = 0; i < count; i++) {
+      const a = (i / count) * TAU;
+      p.fillRect(Math.cos(a) * ring - sz / 2, Math.sin(a) * ring - sz / 2, sz, sz);
+    }
+  }
+
+  const [vinyl, v] = make();
+  v.beginPath(); v.arc(0, 0, Rv, 0, TAU); v.fillStyle = '#0b0b0d'; v.fill();
+  v.lineWidth = 1;
+  for (let r = Rv - 6; r > Rv * 0.36; r -= 3) {
+    v.strokeStyle = (r | 0) % 2 ? 'rgba(255,255,255,.035)' : 'rgba(0,0,0,.5)';
+    v.beginPath(); v.arc(0, 0, r, 0, TAU); v.stroke();
+  }
+  for (const a0 of [-2.4, 0.74]) { // reflets de lumière fixes
+    const g = v.createRadialGradient(0, 0, Rv * .36, 0, 0, Rv);
+    g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(.6, 'rgba(255,255,255,.07)'); g.addColorStop(1, 'rgba(255,255,255,.02)');
+    v.beginPath(); v.moveTo(0, 0); v.arc(0, 0, Rv, a0, a0 + .5); v.closePath();
+    v.fillStyle = g; v.fill();
+  }
+
+  layerCache = { R, dpr, half, plate, vinyl };
+  return layerCache;
+}
+
 // Spirale : chaque tour = SEC_PER_REV secondes ; le son à la position courante est sous le repère.
+// Les traits sont regroupés par couleur et opacité pour limiter le nombre de tracés.
 function drawSpiral(ctx, cx, cy, rIn, rOut, S) {
   const turnsBefore = 1.2, turnsAfter = 2.3;
   const total = turnsBefore + turnsAfter;
   const steps = 900;
   const band = (rOut - rIn) / (total + 0.6);
   const top = -Math.PI / 2;
-  ctx.lineWidth = Math.max(1.5, (rOut - rIn) / steps * 60);
+  const paths = new Map();
   for (let s = 0; s < steps; s++) {
     const u = -turnsBefore + (s / steps) * total;         // tours relatifs à la tête
     const t = S.pos + u * SEC_PER_REV;
@@ -122,14 +145,20 @@ function drawSpiral(ctx, cx, cy, rIn, rOut, S) {
     const a = top - u * TAU;                              // le futur arrive depuis la gauche (sens horaire)
     const base = rOut - band * (u + turnsBefore) - band * 0.3; // sillon vers l'intérieur
     const amp = peakAt(S, t) * band * 0.9;
-    const past = u < 0;
-    ctx.strokeStyle = colorAt(S, t);
-    ctx.globalAlpha = past ? 0.35 : 1 - (u / turnsAfter) * 0.55;
+    const alpha = u < 0 ? 0.35 : Math.round((1 - (u / turnsAfter) * 0.55) * 8) / 8;
+    const key = colorAt(S, t) + '|' + alpha;
+    let path = paths.get(key);
+    if (!path) { path = new Path2D(); paths.set(key, path); }
     const c = Math.cos(a), si = Math.sin(a);
-    ctx.beginPath();
-    ctx.moveTo(cx + c * (base - amp * .5), cy + si * (base - amp * .5));
-    ctx.lineTo(cx + c * (base + amp * .5 + 0.8), cy + si * (base + amp * .5 + 0.8));
-    ctx.stroke();
+    path.moveTo(cx + c * (base - amp * .5), cy + si * (base - amp * .5));
+    path.lineTo(cx + c * (base + amp * .5 + 0.8), cy + si * (base + amp * .5 + 0.8));
+  }
+  ctx.lineWidth = Math.max(1.5, (rOut - rIn) / steps * 60);
+  for (const [key, path] of paths) {
+    const [color, alpha] = key.split('|');
+    ctx.strokeStyle = color;
+    ctx.globalAlpha = +alpha;
+    ctx.stroke(path);
   }
   ctx.globalAlpha = 1;
 }

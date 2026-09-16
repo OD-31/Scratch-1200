@@ -1,4 +1,4 @@
-import { computePeaks, detectBPM, timeStretch } from './dsp.js';
+import { computePeaks, detectBPM, timeStretch, buildLevels } from './dsp.js';
 import { saveSample, getSample, deleteSample, listSamples, updateSample, loadSettings, saveSettings } from './storage.js';
 import { drawPlatter, drawWaveZoom, drawOverview, segmentAt, SEC_PER_REV } from './render.js';
 
@@ -126,7 +126,7 @@ function applyBuffer({ resetPos = false, origCuts = null } = {}) {
     st.cuts = cutsOrig.map((c) => c * ratio).filter((c) => c < st.duration);
     if (resetPos) st.pos = st.cuts[0] || 0;
     else st.pos *= ratio / prevRatio;
-    post({ type: 'load', channels, sampleRate: st.orig.sampleRate, resetPos, scalePos: resetPos ? 0 : ratio / prevRatio });
+    post({ type: 'load', levels: buildLevels(channels), sampleRate: st.orig.sampleRate, resetPos, scalePos: resetPos ? 0 : ratio / prevRatio });
     if (resetPos && st.cuts[0]) post({ type: 'jump', value: st.cuts[0] });
     st.loop = null;
     if (st.loopOn) setLoopToSegment(segmentAt(st.cuts, st.pos));
