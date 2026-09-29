@@ -499,6 +499,20 @@ function button(text, cls, fn) {
   return b;
 }
 
+const APP_VERSION = '3';
+$('appVersion').textContent = APP_VERSION;
+$('btnForceUpdate').addEventListener('click', async (e) => {
+  e.preventDefault();
+  toast('Mise à jour…');
+  try {
+    const regs = await navigator.serviceWorker.getRegistrations();
+    await Promise.all(regs.map((r) => r.unregister()));
+    const keys = await caches.keys();
+    await Promise.all(keys.map((k) => caches.delete(k)));
+  } catch { /* on recharge quand même */ }
+  location.reload();
+});
+
 $('btnSettings').addEventListener('click', () => { syncSettingsUI(); $('settingsPanel').hidden = false; });
 function syncSettingsUI() {
   $('brakeTime').value = settings.brakeTime;
@@ -563,6 +577,7 @@ new ResizeObserver(resize).observe(document.body);
 resize();
 
 function frame() {
+  requestAnimationFrame(frame); // programmé d'abord : la boucle survit à toute erreur
   // position prédite entre deux messages du moteur audio
   let pos = st.pos;
   if (st.orig && st.msgTime) {
@@ -595,11 +610,14 @@ function frame() {
     loop: st.loop,
     beatSec: st.srcBpm ? 60 / (st.srcBpm / st.ratio) : 0,
   });
-  for (const c of canvases) if (c.w) c.fn(c.ctx, c.w, c.h, S);
+  for (const c of canvases) {
+    if (!c.w || !c.h) continue;
+    // une erreur de dessin ne doit jamais arrêter l'application
+    try { c.fn(c.ctx, c.w, c.h, S); } catch (err) { console.error(err); }
+  }
 
   const m = Math.floor(pos / 60), s = (pos % 60).toFixed(2).padStart(5, '0');
   $('timeDisplay').textContent = `${m}:${s}`;
-  requestAnimationFrame(frame);
 }
 
 setMotor(0);
@@ -607,6 +625,15 @@ setMute(false);
 refreshUI();
 requestAnimationFrame(frame);
 
+window.__skratchReady = true; // vu par le piège à erreurs de index.html
+
 if ('serviceWorker' in navigator && location.hostname !== 'localhost') {
   navigator.serviceWorker.register('sw.js').catch(() => {});
+  // Une nouvelle version vient d'être installée : on recharge une fois pour l'utiliser.
+  let reloading = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (reloading) return;
+    reloading = true;
+    location.reload();
+  });
 }

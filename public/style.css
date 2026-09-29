@@ -194,7 +194,13 @@ input[type=range] { accent-color: var(--accent); height: 34px; }
 }
 .lib-list .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lib-list .meta { color: var(--dim); font-size: 12px; }
-.overlay-box { text-align: center; font-size: 22px; font-weight: 700; }
+.overlay-box { text-align: center; font-size: 22px; font-weight: 700; max-width: 560px; }
+.overlay-box .btn { margin: 8px 6px; }
+.err-text {
+  font: 500 13px/1.4 ui-monospace, Menlo, monospace; color: var(--red); white-space: pre-wrap;
+  background: #000; border: 1px solid var(--line); border-radius: 10px; padding: 10px; text-align: left;
+  max-height: 30vh; overflow: auto;
+}
 #startOverlay { background: radial-gradient(circle, #1a1d22, #050506); }
 .rotate { display: none; z-index: 50; background: #000; }
 @media (orientation: landscape) and (max-height: 900px) and (pointer: coarse) { .rotate { display: flex; } }

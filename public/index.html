@@ -124,8 +124,53 @@
     <label class="row">Sens du scratch
       <select id="scratchDir"><option value="1">Normal</option><option value="-1">Inversé</option></select></label>
     <p class="hint">Astuce : si tu n'entends rien, vérifie que le bouton silencieux de l'iPad est désactivé.</p>
+    <p class="hint">Version <span id="appVersion">?</span> · <a href="#" id="btnForceUpdate" style="color:var(--accent)">forcer la mise à jour</a></p>
   </div>
 </div>
+
+<!-- Écran d'erreur : si un fichier de l'app manque ou est abîmé, on le dit au lieu de rester bloqué -->
+<div id="errorOverlay" class="overlay" hidden>
+  <div class="overlay-box">
+    <div style="font-size:40px">⚠️</div>
+    <p>L'application n'a pas pu démarrer.</p>
+    <pre id="errorText" class="err-text"></pre>
+    <button id="btnReload" class="btn btn-accent btn-big">Recharger</button>
+    <button id="btnReset" class="btn btn-big">Réinitialiser l'app</button>
+    <p class="hint">« Réinitialiser » vide le cache et retélécharge l'application.<br>Tes samples sont conservés.</p>
+  </div>
+</div>
+
+<script>
+// Piège les erreurs de chargement des modules (sinon l'écran de démarrage reste inerte).
+(function () {
+  var shown = false;
+  function show(msg) {
+    if (shown) return;
+    shown = true;
+    document.getElementById('errorText').textContent = String(msg).slice(0, 300);
+    document.getElementById('errorOverlay').hidden = false;
+    var start = document.getElementById('startOverlay');
+    if (start) start.hidden = true;
+  }
+  window.addEventListener('error', function (e) {
+    if (e.target && (e.target.tagName === 'SCRIPT' || e.target.tagName === 'LINK')) show('Fichier manquant : ' + (e.target.src || e.target.href));
+    else if (e.message) show(e.message);
+  }, true);
+  window.addEventListener('unhandledrejection', function (e) { show(e.reason && e.reason.message || e.reason); });
+  // Si l'app n'a pas démarré au bout de 6 s, c'est qu'un fichier n'a pas pu être chargé.
+  setTimeout(function () { if (!window.__skratchReady) show('Chargement interrompu. Vérifie la connexion, puis réinitialise.'); }, 6000);
+  document.getElementById('btnReload').addEventListener('click', function () { location.reload(); });
+  document.getElementById('btnReset').addEventListener('click', async function () {
+    try {
+      var regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map(function (r) { return r.unregister(); }));
+      var keys = await caches.keys();
+      await Promise.all(keys.map(function (k) { return caches.delete(k); }));
+    } catch (err) { /* on recharge quand même */ }
+    location.reload(true);
+  });
+})();
+</script>
 
 <div id="startOverlay" class="overlay">
   <div class="overlay-box">

@@ -24,9 +24,11 @@ http.createServer((req, res) => {
   fs.readFile(file, (err, data) => {
     if (err) { res.writeHead(404); return res.end('Not found'); }
     const ext = path.extname(file);
+    // no-cache = le navigateur revalide à chaque fois ; c'est le service worker qui
+    // gère le hors-ligne. Évite qu'un cache intermédiaire serve un ancien fichier.
     res.writeHead(200, {
       'Content-Type': TYPES[ext] || 'application/octet-stream',
-      'Cache-Control': ext === '.html' || file.endsWith('sw.js') ? 'no-cache' : 'public, max-age=3600',
+      'Cache-Control': ext === '.png' ? 'public, max-age=86400' : 'no-cache',
     });
     res.end(data);
   });

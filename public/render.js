@@ -31,6 +31,7 @@ export function drawPlatter(ctx, w, h, S) {
   ctx.clearRect(0, 0, w, h);
   const cx = w / 2, cy = h / 2;
   const R = Math.min(w, h) / 2 - 10;
+  if (R < 40) return; // taille pas encore connue (mise en page en cours)
   S.geom = { cx, cy, R };
   const rot = S.angle; // rotation du disque (radians, sens horaire)
 
